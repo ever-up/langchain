@@ -1,2 +1,13 @@
 .env-ch
 .env
+.conda-env
+
+# IDE
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python

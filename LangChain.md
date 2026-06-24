@@ -265,7 +265,80 @@ LangChain 支持所有主流模型提供商，包括 OpenAI、Anthropic、Google
 | 通义千问   | api_key地址：https://bailian.console.aliyun.com/?tab=model#/api-keybase_ url地址：https://bailian.console.aliyun.com/?tab=api#/api 模型地址：https://bailian.console.aliyun.com/?tab=model#/model-market/all 模型价格：https://bailian.console.aliyun.com/?tab=doc#/doc/?type=model&url=2987148 |
 | 智普AI     | api_key地址：https://bigmodel.cn/usercenter/proj-mgmt/apikeysbase_ url地址：https://docs.bigmodel.cn/cn/api/introduction 模型地址：https://docs.bigmodel.cn/cn/guide/start/model-overview 模型价格：https://open.bigmodel.cn/pricing |
 
-## 2.2 模型初始化参数解释
+### 2.1.1**Model Class方式初始化模型**
+
+Model Class方式初始化模型最为直接，需要根据要使用的模型提供商，导入对应的具体类（如 ChatOpenAI, ChatAnthropic）并进行实例化。
+
+```py
+from langchain.agents import create_agent
+
+from my_llm import deepseek_llm,tongyi_llm
+
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain_community")
+def get_weather(city: str) -> str:
+    # 模拟天气查询
+    """获取给定城市的天气。"""
+    return f"{city} 天气暴雨！"
+
+# 创建Agent
+agent_deepseek = create_agent(
+    model=deepseek_llm,
+    tools=[get_weather],
+    system_prompt="你是一个助手，你可以查询城市的天气。",
+)
+# 创建Agent
+agent_tongyi = create_agent(
+    model=tongyi_llm,
+    tools=[get_weather],
+    system_prompt="你是一个助手，你可以查询城市的天气。",
+)
+
+# 调用Agent
+resp1 = agent_deepseek.invoke(
+    {"messages": [{"role": "user", "content": "查询北京的天气"}]}
+)
+# 调用Agent
+resp2 = agent_tongyi.invoke(
+    {"messages": [{"role": "user", "content": "查询北京的天气"}]}
+)
+if __name__ == '__main__':
+    print(resp1)
+    print('*' * 50)
+    print(resp2)
+```
+
+### 2.1.2 **init_chat_model初始化模型**
+
+init_chat_model 初始化模型是LangChain v1.0版本后推出的模型统一初始化方法，该方法像一个智能工厂，需要传入“model”（模型）、“model_provider”（模型提供商）、“api_key”、“base_url”参数自动创建出对应的模型实例。初始化模型后，调用模型方式与ModelClass 方式完全一致。
+
+model_provider支持的常见参数:openai、anthropic、deepseek、ollama同样，如果使用的模型供应商没有对应的provider，但是该模型供应商支持标准OpenAI访问，那么可以设置“model_provider”为“openai”。
+
+```py
+from langchain.chat_models import init_chat_model
+
+from env_utils import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DASHSCOPE_API_KEY, DASHSCOPE_BASE_URL
+
+deepseek_init_llm = init_chat_model(
+    model= 'deepseek-v4-flash',
+    api_key = DEEPSEEK_API_KEY,
+    base_url = DEEPSEEK_BASE_URL
+)
+qwen_init_llm = init_chat_model(
+    model= 'qwen3.6-plus',
+    model_provider= 'openai',# init_chat_model中没有qwen，但是符合openai
+    api_key = DASHSCOPE_API_KEY,
+    base_url = DASHSCOPE_BASE_URL
+)
+if __name__ == '__main__':
+    print(deepseek_init_llm.invoke('请介绍一下自己'))
+    print('*' * 50)
+    print(qwen_init_llm.invoke('请介绍一下自己'))
+```
+
+
+
+### 2.1.3 模型初始化参数解释
 
 在LangChain中，Model Class 和init_chat_model初始化模型共同的参数及解释：
 
@@ -286,7 +359,7 @@ LangChain 支持所有主流模型提供商，包括 OpenAI、Anthropic、Google
   - 英文Token估算：1个Token约对应0.75个英文单词或4个字符；
   - 中文Token估算：1个汉字通常对应1~2个Token，但优化较好的模型（如通义千问、文心一言）约1:1的映射。
 
-## 2.3 模型调用
+## 2.2 模型调用
 
 在 LangChain 中，模型调用（Invocation）是指通过特定方法触发大语言模型生成输出的过程。根据不同的应用场景和需求，LangChain 提供了几种核心的调用方式，主要是 invoke(), stream()和 batch()方法，以及它们的异步版本 ainvoke(), astream(), 和 abatch(),下面将系统地介绍这些方法。
 
@@ -299,9 +372,216 @@ LangChain 支持所有主流模型提供商，包括 OpenAI、Anthropic、Google
 | batch()   | 批量处理多个输入            | 高并发场景，需要同时处理大量请求。                   |
 | abatch()  | 非阻塞，提高系统吞吐量      | 高并发Web应用、IO密集型任务。                        |
 
+### 2.2.1 invoke()方法调用模型
+
+1、**单条消息**
+
+该方式是最简单的方式，直接传入一个问题或指令，适用于不需要保留对话历史的简单生成任务
+
+2、**消息列表（字典格式）**
+
+该方式用于表达多轮对话历史，每条消息都需要通过 role字段指定其角色（如 system, user, assistant）
+
+3、**消息列表（消息对象格式）**
+
+这是LangChain推荐的方式，使用内置的消息类（如 SystemMessage, HumanMessage, AIMessage），类型更安全，功能也更丰富
+
+```py
+"""
+模型调用
+"""
+
+from Test01.Demo03init_llm import deepseek_init_llm, qwen_init_llm
+
+# 1、 invoke方法
+# resp = qwen_init_llm.invoke('请介绍一下你自己')
+# print(type(resp))
+# print(resp.content)
+# 2、字典格式的消息列表
+conversations = [
+    {'role':'system', 'content': '你是一个翻译助手，可以将汉语翻译成英语'},
+    {"role": "assistant", "content": "I like programming"},
+    {'role':'user', 'content': '翻译：你今晚吃什么'},
+    {'role':'user', 'content': '翻译：大模型时代'}]
+#resp1 = qwen_init_llm.invoke(conversations)
+# print(type(resp1))
+# print(resp1.content)
+# 消息对象格式的消息列表[建议使用]
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+messages = [
+    SystemMessage(content='你是一个翻译助手，可以将汉语翻译成英语'),
+    AIMessage(content="I like programming"),
+    HumanMessage(content='你今晚吃什么'),
+    HumanMessage(content='大模型时代')]
+# resp2 = qwen_init_llm.invoke(messages)
+# print(type(resp2))
+# print(resp2.content)
+```
+
+### 2.2.2 **流式调用模型**
+
+流式传输调用大模型允许大语言模型（LLM）在生成内容的过程中，逐块（Chunk）地实时输出结果，而不是等待整个响应完全生成后再一次性返回。流式调用大模型使用方式是通过调用 [model.stream](http://model.stream/)()方法会返回一个迭代器（Iterator），你可以通过循环来实时处理每一个新生成的内容块。
+
+```py
+"""
+流式调用Stream
+"""
+from Test01.Demo03init_llm import deepseek_init_llm
+
+resp = deepseek_init_llm.stream('请介绍一下你自己')
+print(type(resp))
+for chunk in resp:
+    # print(type(chunk)) # <class 'langchain_core.messages.ai.AIMessageChunk'>
+    print(chunk.content,end='|',flush=True)
+```
+
+### **2.2.3. 批量调用模型**
+
+LangChain 中的批处理功能是一种通过并行处理多个独立请求来显著提升性能、降低成本的强大机制。批处理的核心思想是将多个独立的请求集合成一个批次，并行发送给模型处理。这与逐个顺序调用（invoke）相比，能大幅减少网络往返开销和等待时间，尤其适合处理问答、文本分类、情感分析等独立任务。
+
+batch()特点是等待所有请求处理完毕，按原始输入顺序返回结果列表。当输入列表很大或单个模型调用耗时差异显著时，batch_as_completed()允许应用在收到第一个结果后立即开始后续处理，而不必等待最慢的那个请求，也就是说
+
+batch_as_completed() 每个请求完成后立即 yield 结果，结果可能乱序，但包含索引信息。
+
+使用示例如下：
+
+```py
+"""
+批量调用模型
+"""
+# 此外，当需要处理大量输入时，为了避免对模型服务造成过大压力或触发速率限制，可以通过 RunnableConfig字典中的 max_concurrency参数来控制最大并行数。
+from Test01.Demo03init_llm import deepseek_init_llm, qwen_init_llm
+
+# res = qwen_init_llm.batch(['什么是Python', '什么是机器学习', '什么是大模型'])
+# print(type(res)) # <class 'list'>
+# for re in res:
+#     # print(type(re)) #<class 'langchain_core.messages.ai.AIMessage'>
+#     print(re.content)
+res = qwen_init_llm.batch_as_completed(
+    ['什么是Python', '什么是机器学习', '什么是大模型'],
+    config={
+        'max_concurrency': 5,
+        'timeout': 10
+    }
+)
+for re in res:
+    # print(type(re)) #<class 'tuple'>
+    print(re)
+```
+
+### 2.2.4 异步调用模型
+
+在LangChain框架中，异步方法（ainvoke、astream、abatch）与它们的同步版本（invoke、stream、batch）相比，具备如下特点：
+
+- 避免阻塞主线程：同步调用会阻塞程序执行，而异步方法让应用程序在等待API响应时保持响应性。
+- 优化资源利用：异步操作可以更高效地利用系统资源，减少空闲等待时间
+
+下面通过一个完整的示例展示如何在LangChain中使用异步方法调用模型。
+
+```PY
+"""
+异步调用大模型
+"""
+import asyncio
+import time
+
+from langchain.chat_models import init_chat_model
+
+from env_utils import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+
+llm = init_chat_model(
+    model="deepseek-v4-flash",
+    api_key=DEEPSEEK_API_KEY,
+    base_url=DEEPSEEK_BASE_URL
+)
+
+async def demo_async_invoke():
+    """演示单个异步调用的非阻塞特性"""
+    print("=== 演示：ainvoke 的异步（非阻塞）效果 ===")
+
+    print("程序开始...")
+
+    # 1. 发起一个异步请求，但不等待它完成
+    print(">>> 发起异步模型调用 (ainvoke)...")
+    async_task = llm.ainvoke("用一句话解释人工智能。")
+
+    # 2. 在等待模型响应的同时，主程序可以继续执行其他任务
+    print(">>> 模型请求已发送，程序无需等待，继续执行...")
+    for i in range(3):
+        # 等待1s
+        time.sleep(1)
+        print(f">>> 正在执行第{i + 1}个任务... ")
+
+    # 3. 现在，我们需要模型的结果了，所以用 await 等待它完成
+    print(">>> 其他任务已完成，现在等待模型返回结果...")
+    response = await async_task  # 此时才开始等待
+
+    print(f">>> 模型返回: {response.content}")
 
 
+async def demo_async_stream():
+    """演示异步调用的非阻塞特性"""
+    print("=== 演示：astream 的异步（非阻塞）效果 ===")
 
+    print("程序开始...")
+
+    # 1. 发起异步流式请求，但不立即处理结果
+    print(">>> 发起异步流式调用 (astream)...")
+    stream_resp = llm.astream("请一句话解释机器学习的基本概念。")
+
+    # 2. 在等待流式响应的同时，执行其他任务
+    print(">>> 流式请求已发送，程序无需等待，继续执行...")
+    for i in range(3):
+        # 等待1s
+        time.sleep(1)
+        print(f">>> 正在执行第{i + 1}个任务... ")
+
+    # 3. 现在开始处理流式结果
+    print(">>> 其他任务已完成，开始处理流式结果...")
+
+    print(">>> 流式输出: ", end="", flush=True)
+    async for chunk in stream_resp:
+        if hasattr(chunk, 'content'):
+            print(chunk.content, end="", flush=True)
+    print(">>> 流式输出结束\n")
+
+async def demo_async_batch():
+    """演示单个异步调用的非阻塞特性"""
+    print("=== 演示：abatch 的异步（非阻塞）效果 ===")
+
+    print("程序开始...")
+
+    # 准备批量输入（即使是单个输入，也用列表形式）
+    questions = ["用一句话说明深度学习与传统机器学习的区别"]
+
+    # 1. 发起异步批量请求
+    print(">>> 发起异步批量调用 (abatch)...")
+    batch_resp = llm.abatch(questions)
+
+    # 2. 在等待批量处理的同时，执行其他任务
+    print(">>> 批量请求已发送，程序无需等待，继续执行...")
+    for i in range(3):
+        # 等待1s
+        time.sleep(1)
+        print(f">>> 正在执行第{i + 1}个任务... ")
+
+    # 3. 等待批量处理结果
+    print(">>> 其他任务已完成，现在等待批量处理结果...")
+    responses = await batch_resp
+
+    for response in responses:
+        print(f">>> 批量响应: {response.content}")
+
+async def main():
+    """主函数"""
+    await demo_async_invoke()
+    await demo_async_stream()
+    await demo_async_batch()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
 
 
 

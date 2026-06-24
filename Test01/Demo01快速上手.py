@@ -30,7 +30,7 @@ resp1 = agent_deepseek.invoke(
 resp2 = agent_tongyi.invoke(
     {"messages": [{"role": "user", "content": "查询北京的天气"}]}
 )
-
-print(resp1)
-print('*' * 50)
-print(resp2)
+if __name__ == '__main__':
+    print(resp1)
+    print('*' * 50)
+    print(resp2)
