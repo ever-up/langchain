@@ -599,7 +599,7 @@ if __name__ == "__main__":
 
 ### **2.3.1. 定义输出结构的模式**
 
-在 LangChain 中，可以使用如下三种方式定义期望的输出结构：Pydantic 模型、TypedDict、JSON Schema，调用大模型时，三种方式都可通过“with_structured_output”方法来返回结构化结果。
+在 LangChain 中，可以使用如下三种方式定义期望的输出结构：Pydantic 模型、TypedDict、JSON Schema，调用大模型时，三种方式都可通过”with_structured_output”方法来返回结构化结果。
 
 #### **2.3.1.1. Pydantic 模型（推荐）**
 
