@@ -78,7 +78,7 @@ conda create --name langchain python=3.12.4
 
 #查看anconda安装好的python环境
 conda env list
-langchain          D:\ProgramData\miniconda3\envs\langchain_v1.2
+langchain          D:\ProgramData\miniconda3\envs\langchain
 
 #在命令行窗口切换到某python环境
 conda activate langchain
@@ -104,10 +104,10 @@ conda remove --name langchain --all
 
 ```python
 # 切换conda环境
-conda activate langchain_v1.2
+conda activate langchain
 
 #安装依赖
-python -m pip install langchain==1.2.0  langchain-deepseek==1.0.1  dotenv==0.9.9 -i https://pypi.tuna.tsinghua.edu.cn/simple
+python -m pip install langchain  langchain-deepseek  dotenv==0.9.9 -i https://pypi.tuna.tsinghua.edu.cn/simple
 #安装 ChatHunyuan、ChatTongyi、ChatZhipuAI依赖包
 pip install langchain-community
 #安装 ChatTongyi依赖包
@@ -251,6 +251,16 @@ print(resp2)
 # 二、模型
 
 ## 2.1 模型初始化
+
+- **关于各个聊天模型LangChain使用方式可以参考如下官网**
+
+| 模型供应商 | LangChain使用相关链接                                        |
+| ---------- | ------------------------------------------------------------ |
+| OpenAI     | https://docs.langchain.com/oss/python/integrations/chat/openai |
+| Anthropic  | https://docs.langchain.com/oss/python/integrations/chat/anthropic |
+| DeepSeek   | https://docs.langchain.com/oss/python/integrations/chat/deepseek |
+| Ollama     | https://docs.langchain.com/oss/python/integrations/chat/ollama |
+| 通义千问   | https://docs.langchain.com/oss/python/integrations/chat/qwen |
 
 LangChain 支持所有主流模型提供商，包括 OpenAI、Anthropic、Google、Azure、AWS Bedrock 等，每个提供商都提供多种具有不同功能的模型(Chat、Embedding、图像、多模态等)，有关 LangChain 支持模型的完整列表，请参阅：https://docs.langchain.com/oss/python/integrations/providers/all_providers
 
@@ -583,7 +593,19 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+## 2.3. **模型结构化输出**
 
+调用模型时，我们可以设置结构化输出来约束大模型输出结果，使其符合预定义的数据结构（如 JSON、Pydantic 模型或字典），而不是任意的自然文本。确保模型生成的结果能够被程序精准解析，并无缝集成到下游系统（如数据库、API 或前端展示逻辑）中，从而显著提升应用的可靠性和自动化程度。
+
+### **2.3.1. 定义输出结构的模式**
+
+在 LangChain 中，可以使用如下三种方式定义期望的输出结构：Pydantic 模型、TypedDict、JSON Schema，调用大模型时，三种方式都可通过“with_structured_output”方法来返回结构化结果。
+
+#### **2.3.1.1. Pydantic 模型（推荐）**
+
+Pydantic 模型是使用 Python 的 Pydantic 库定义强类型数据模型,支持复杂嵌套结构。适合需要严格数据验证和复杂结构的场景，如生成 API 响应。
+
+Pydanitc是一个基于 Python 类型注解的库，它通过在运行时强制执行类型提示，确保数据的正确性和一致性，定义这种类型时需要创建一个继承自BaseModel的类，使用类型提示（如 str, int）和 Field函数来声明每个字段的名称、类型、默认值和描述。使用方式参考：https://docs.pydantic.dev/latest/concepts/models/#basic-model-usage。
 
 
 
