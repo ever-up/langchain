@@ -2,7 +2,6 @@
 结构化输出的几种实现方式演示
 """
 from pydantic import BaseModel, Field
-import json
 
 from Test01.Demo03init_llm import qwen_init_llm
 

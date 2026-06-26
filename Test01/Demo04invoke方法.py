@@ -2,8 +2,6 @@
 模型调用
 """
 
-from Test01.Demo03init_llm import deepseek_init_llm, qwen_init_llm
-
 # 1、 invoke方法
 # resp = qwen_init_llm.invoke('请介绍一下你自己')
 # print(type(resp))

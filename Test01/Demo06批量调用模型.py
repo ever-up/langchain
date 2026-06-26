@@ -1,7 +1,7 @@
 """
 批量调用模型
 """
-from Test01.Demo03init_llm import deepseek_init_llm, qwen_init_llm
+from Test01.Demo03init_llm import qwen_init_llm
 
 # res = qwen_init_llm.batch(['什么是Python', '什么是机器学习', '什么是大模型'])
 # print(type(res)) # <class 'list'>

@@ -399,20 +399,21 @@ from Test01.Demo03init_llm import deepseek_init_llm, qwen_init_llm
 # print(resp.content)
 # 2、字典格式的消息列表
 conversations = [
-    {'role':'system', 'content': '你是一个翻译助手，可以将汉语翻译成英语'},
-    {"role": "assistant", "content": "I like programming"},
-    {'role':'user', 'content': '翻译：你今晚吃什么'},
-    {'role':'user', 'content': '翻译：大模型时代'}]
-#resp1 = qwen_init_llm.invoke(conversations)
+  {'role': 'system', 'content': '你是一个翻译助手，可以将汉语翻译成英语'},
+  {"role": "assistant", "content": "I like programming"},
+  {'role': 'user', 'content': '翻译：你今晚吃什么'},
+  {'role': 'user', 'content': '翻译：大模型时代'}]
+# resp1 = qwen_init_llm.invoke(conversations)
 # print(type(resp1))
 # print(resp1.content)
 # 消息对象格式的消息列表[建议使用]
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+
 messages = [
-    SystemMessage(content='你是一个翻译助手，可以将汉语翻译成英语'),
-    AIMessage(content="I like programming"),
-    HumanMessage(content='你今晚吃什么'),
-    HumanMessage(content='大模型时代')]
+  SystemMessage(content='你是一个翻译助手，可以将汉语翻译成英语'),
+  AIMessage(content="I like programming"),
+  HumanMessage(content='你今晚吃什么'),
+  HumanMessage(content='大模型时代')]
 # resp2 = qwen_init_llm.invoke(messages)
 # print(type(resp2))
 # print(resp2.content)
@@ -431,8 +432,8 @@ from Test01.Demo03init_llm import deepseek_init_llm
 resp = deepseek_init_llm.stream('请介绍一下你自己')
 print(type(resp))
 for chunk in resp:
-    # print(type(chunk)) # <class 'langchain_core.messages.ai.AIMessageChunk'>
-    print(chunk.content,end='|',flush=True)
+  # print(type(chunk)) # <class 'langchain_core.messages.ai.AIMessageChunk'>
+  print(chunk.content, end='|', flush=True)
 ```
 
 ### **2.2.3. 批量调用模型**
@@ -458,15 +459,15 @@ from Test01.Demo03init_llm import deepseek_init_llm, qwen_init_llm
 #     # print(type(re)) #<class 'langchain_core.messages.ai.AIMessage'>
 #     print(re.content)
 res = qwen_init_llm.batch_as_completed(
-    ['什么是Python', '什么是机器学习', '什么是大模型'],
-    config={
-        'max_concurrency': 5,
-        'timeout': 10
-    }
+  ['什么是Python', '什么是机器学习', '什么是大模型'],
+  config={
+    'max_concurrency': 5,
+    'timeout': 10
+  }
 )
 for re in res:
-    # print(type(re)) #<class 'tuple'>
-    print(re)
+  # print(type(re)) #<class 'tuple'>
+  print(re)
 ```
 
 ### 2.2.4 异步调用模型
@@ -607,28 +608,32 @@ from Test01.Demo03init_llm import qwen_init_llm
 
 # 定义一个表示评分的嵌套模型
 class Rating(BaseModel):
-    imdb_rating: Optional[float] = Field(default=None, description='IMDB评分')
-    douban_rating: Optional[float] = Field(default=None, description='豆瓣评分')
-class  Actor(BaseModel):
-    name: str = Field(description='演员在现实中的名称')
-    role: str = Field(description='角色在剧中的名称')
+  imdb_rating: Optional[float] = Field(default=None, description='IMDB评分')
+  douban_rating: Optional[float] = Field(default=None, description='豆瓣评分')
+
+
+class Actor(BaseModel):
+  name: str = Field(description='演员在现实中的名称')
+  role: str = Field(description='角色在剧中的名称')
+
 
 class Drama(BaseModel):
-    title: str = Field(default=None, description='电视剧标题')
-    year: int = Field(default=None, description='上映年份')
-    director: str = Field(default=None, description='导演')
-    # 使用嵌套的 Rating 模型来匹配大模型返回的评分对象 default= None 可能不返回
-    # 兼容两种格式：浮点数或 Rating 对象
-    rating: Optional[Union[float, Rating]] = Field(default=None, description='评分信息')
-    # 注意：如果大模型返回的是 'cast'，您可能需要这里定义为 'cast' 并设置别名
-    cast: List[Actor] = Field(default=[], description='主要参演人员列表')
+  title: str = Field(default=None, description='电视剧标题')
+  year: int = Field(default=None, description='上映年份')
+  director: str = Field(default=None, description='导演')
+  # 使用嵌套的 Rating 模型来匹配大模型返回的评分对象 default= None 可能不返回
+  # 兼容两种格式：浮点数或 Rating 对象
+  rating: Optional[Union[float, Rating]] = Field(default=None, description='评分信息')
+  # 注意：如果大模型返回的是 'cast'，您可能需要这里定义为 'cast' 并设置别名
+  cast: List[Actor] = Field(default=[], description='主要参演人员列表')
 
-    # 为兼容旧代码，可以添加一个计算属性来获取豆瓣评分
-    @property
-    def douban_score(self) -> Optional[float]:
-       if isinstance(self.rating, Rating):
-           return self.rating.douban_rating
-       return self.rating
+  # 为兼容旧代码，可以添加一个计算属性来获取豆瓣评分
+  @property
+  def douban_score(self) -> Optional[float]:
+    if isinstance(self.rating, Rating):
+      return self.rating.douban_rating
+    return self.rating
+
 
 # 使用
 output = qwen_init_llm.with_structured_output(Drama)
@@ -645,11 +650,123 @@ title='甄嬛传' year=2011 director='郑晓龙' rating=9.4 cast=[]
 
 
 
-#### 2.3.1.3  **TypedDict**
+#### 2.3.1.2  **TypedDict**
+
+TypedDict 是 Python 3.8+ 引入的一种类型提示工具，它允许为字典对象定义固定的键名和对应的值类型。TypeDict是使用 Python 的 TypedDict来定义带有类型提示的字典结构，无需额外依赖，适合需要快速定义字典结构且无需 Pydantic 重量级功能的场景。
+
+```py
+from typing import TypedDict, Annotated
+
+from Test01.Demo03init_llm import deepseek_init_llm
+
+class Movie(TypedDict):
+    title: Annotated[str,'电影标题']
+    year: Annotated[int,'上映年份']
+    director: Annotated[str,'导演']
+    rating: Annotated[float,'评分（10分制）']
+
+
+output = deepseek_init_llm.with_structured_output(Movie)
+invoke = output.invoke("""
+请严格按照JSON格式输出，不要省略任何字段：
+{
+  "title": "",
+  "year": 0,
+  "director": "",
+  "cast": [{"name": "", "role": ""}],
+  "rating": 0.0
+}
+
+电影：《盗梦空间》
+""")
+print(type(invoke))
+print(invoke)
+from typing import TypedDict, List, Annotated
+
+
+# 使用TypedDict定义嵌套结构
+class Actor(TypedDict):
+    name: Annotated[str, "演员姓名"]
+    role: Annotated[str, "饰演的角色"]
+
+class Movie(TypedDict):
+    title: Annotated[str, "电影标题"]
+    year: Annotated[int, "上映年份"]
+    director: Annotated[str, "导演"]
+    cast: Annotated[List[Actor], "演员列表"]  # 嵌套列表定义
+    rating: Annotated[float, "评分"]
+
+# 设置模型结构化输出
+model_with_structure  = deepseek_init_llm.with_structured_output(Movie,method="json_mode")
+
+# 调用模型并获取结构化输出
+resp:Movie = model_with_structure.invoke("""
+请严格按照JSON格式输出，不要省略任何字段：
+{
+  "title": "",
+  "year": 0,
+  "director": "",
+  "cast": [{"name": "", "role": ""}],
+  "rating": 0.0
+}
+
+电影：《盗梦空间》
+""")
+print(resp)
+```
+
+```
+D:\python\python.exe D:\pythonProject\langchain\model_structured_output\Demo03typeddict_structured_output.py 
+{'title': '盗梦空间', 'year': 2010, 'director': '克里斯托弗·诺兰', 'cast': [{'name': '莱昂纳多·迪卡普里奥', 'role': '柯布'}, {'name': '约瑟夫·戈登-莱维特', 'role': '亚瑟'}, {'name': '艾伦·佩吉', 'role': '阿德里安娜'}, {'name': '渡边谦', 'role': '斋藤'}, {'name': '汤姆·哈迪', 'role': '伊姆斯'}, {'name': '玛丽昂·歌迪亚', 'role': '梅尔'}, {'name': '基里安·墨菲', 'role': '罗伯特·费希尔'}], 'rating': 9.3}
+
+```
 
 
 
+#### 2.3.1.3 jsonschema
 
+JSON Schema是提供一个标准的 JSON Schema 字典来定义结构。适合需要与多种编程语言交互或进行复杂数据约束定义的场景。
+
+```py
+import jsonschema
+
+from Test01.Demo03init_llm import deepseek_init_llm, qwen_init_llm
+
+json_schema = {
+    "title": "MovieInfo", # 不能是中文
+    "description": "电影信息",
+    "type": "object",
+    "properties": {
+        "id": {"type": "string"    , "description": "电影ID"},
+        "title": {"type": "string" , "description": "电影标题"},
+        "year": {"type": "integer"  , "description": "上映年份"},
+        "director": {"type": "string"    , "description": "导演"},
+        "actors": {"type": "array", "items": {"type": "string", "description": "演员姓名"}},
+        "genres": {"type": "array", "items": {"type": "string", "description": "电影类型"}},
+        "rating": {"type": "number", "description": "评分（10分制）"},
+    },
+    # "required": ["title", "year", "director", "actors", "genres", "rating"] # 必须包含的字段，默认所有字段都必须包含，实际结果中可能缺少信息
+}
+
+model_with_structure = qwen_init_llm.with_structured_output(json_schema, method="json_mode")
+invoke = model_with_structure.invoke("""
+请以json格式输出：电影：《盗梦空间》
+""")
+print(type(invoke))
+print(invoke)
+# 验证返回的对象是否符合json_schema
+try:
+    error = jsonschema.validate(instance=invoke, schema=json_schema)
+    # 验证成功，不抛出异常 ，返回 None
+    print('验证成功')
+except jsonschema.exceptions.ValidationError as e:
+    print(e)
+```
+
+```py
+{'title': '盗梦空间', 'original_title': 'Inception', 'year': 2010, 'director': '克里斯托弗·诺兰', 'genre': ['科幻', '动作', '悬疑', '惊悚'], 'rating': 9.3, 'description': '一名经验丰富的窃贼利用共享梦境技术，从目标潜意识中窃取商业机密。为了完成一次看似不可能的任务并洗清自己的罪名，他组建了一支团队，试图在目标的深层潜意识中植入一个想法。'}
+验证成功
+```
 
 
 
