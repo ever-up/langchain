@@ -18,9 +18,9 @@ class Drama(BaseModel):
     # 注意：如果大模型返回的是 'cast'，您可能需要这里定义为 'cast' 并设置别名
     cast: List[Actor] = Field(default=[], description='主要参演人员列表')
 
-# 使用
-output = qwen_init_llm.with_structured_output(Drama, method="json_mode")
-res = output.invoke('请以json格式介绍电视剧《甄嬛传》')
+# include_raw=True 会返回原始的 JSON 字符串，False 会返回解析后规定的结构化数据  json_mode模式
+output = qwen_init_llm.with_structured_output(Drama, method="json_mode",include_raw=True)
+res = output.invoke('请介绍一下电影《盗梦空间》，评分字段只输出一个10分制的总评分数字，不要输出多个平台的评分。请以 JSON 格式返回结果。')
 
 print(type(res))
 print(res)

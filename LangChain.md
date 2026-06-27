@@ -586,6 +586,16 @@ if __name__ == "__main__":
 
 ## 2.3 模型结构化输出
 
+**问题！！！**
+
+```
+如果调用的思考类模型，结构化输出就不适合
+研究了一下，如果还想用结构化输出并且用思考大模型，prompt就需要要求的格外严格，并且最好添加method参数
+output = qwen_init_llm.with_structured_output(Drama, method="json_mode",include_raw=True)
+```
+
+
+
 调用模型时，我们可以设置结构化输出来约束大模型输出结果，使其符合预定义的数据结构（如 JSON、Pydantic 模型或字典），而不是任意的自然文本。确保模型生成的结果能够被程序精准解析，并无缝集成到下游系统（如数据库、API 或前端展示逻辑）中，从而显著提升应用的可靠性和自动化程度。
 
 ### 2.3.1 **定义输出结构的模式**
@@ -636,8 +646,11 @@ class Drama(BaseModel):
 
 
 # 使用
+# include_raw=True 会返回原始的 JSON 字符串，False 会返回解析后规定的结构化数据  json_mode模式
+# output = qwen_init_llm.with_structured_output(Drama, method="json_mode",include_raw=True)
 output = qwen_init_llm.with_structured_output(Drama)
 res: Drama = output.invoke('介绍电视剧《甄嬛传》，我想请求的数据都要做返回并且严格按照我定义的json格式进行返回数据')
+
 
 print(type(res))
 print(res)
@@ -768,9 +781,203 @@ except jsonschema.exceptions.ValidationError as e:
 验证成功
 ```
 
+### **2.3.2. 获取结构化结果方式**
 
+以上定义输出结构的三种模式中，我们都是通过调用“with_structured_output”来获取结构化输出结果，除了这种方式外，还可以通过使用输出解释器来获取结构化输出结果。下面介绍这两种获取结构化结果的方式。
 
+#### **2.3.2.1. 使用with_structured_output**
 
+这种方式是最新、最简洁的API，直接让模型“理解”你需要的数据结构，并返回解析好的对象。但是一些国内大模型不支持这种方式，例如：deepseek-reasoner不支持该方式，那么就考虑其他两种方式。
+
+此外，我们可以在with_structured_output方法中传入include_raw=True参数同时获取原始的 AI 消息对象,从而访问令牌用量等元数据，操作如下：
+
+```py
+from pydantic import BaseModel, Field
+from typing import List, Optional, Union
+from Test01.Demo03init_llm import qwen_init_llm,deepseek_init_llm
+# 定义一个表示评分的嵌套模型
+class  Actor(BaseModel):
+    name: str = Field(description='演员在现实中的名称')
+    role: str = Field(description='角色在剧中的名称')
+
+class Drama(BaseModel):
+    title: str = Field(default=None, description='电视剧标题')
+    year: int = Field(default=None, description='上映年份')
+    director: str = Field(default=None, description='导演')
+    # 使用嵌套的 Rating 模型来匹配大模型返回的评分对象 default= None 可能不返回
+    # 兼容两种格式：浮点数或 Rating 对象
+    rating:float = Field(default=None, description='评分信息')
+    # 注意：如果大模型返回的是 'cast'，您可能需要这里定义为 'cast' 并设置别名
+    cast: List[Actor] = Field(default=[], description='主要参演人员列表')
+
+# include_raw=True 会返回原始的 JSON 字符串，False 会返回解析后规定的结构化数据  json_mode模式
+output = qwen_init_llm.with_structured_output(Drama, method="json_mode",include_raw=True)
+res = output.invoke('请介绍一下电影《盗梦空间》，评分字段只输出一个10分制的总评分数字，不要输出多个平台的评分。请以 JSON 格式返回结果。')
+print(type(res))
+print(res)
+```
+
+```py
+<class 'dict'>
+{'raw': AIMessage(content='{\n  "title": "盗梦空间",\n  "rating": 9.3\n}', additional_kwargs={'parsed': None, 'refusal': None}, response_metadata={'token_usage': {'completion_tokens': 22, 'prompt_tokens': 48, 'total_tokens': 70, 'completion_tokens_details': {'accepted_prediction_tokens': None, 'audio_tokens': None, 'reasoning_tokens': None, 'rejected_prediction_tokens': None, 'text_tokens': 22}, 'prompt_tokens_details': {'audio_tokens': None, 'cached_tokens': None, 'text_tokens': 48}}, 'model_provider': 'openai', 'model_name': 'qwen3.6-plus', 'system_fingerprint': None, 'id': 'chatcmpl-f7f5712d-e2f1-97a6-b651-55b30ac9acdc', 'finish_reason': 'stop', 'logprobs': None}, id='lc_run--019f06d9-f357-74e2-8362-f55327e2d532-0', tool_calls=[], invalid_tool_calls=[], usage_metadata={'input_tokens': 48, 'output_tokens': 22, 'total_tokens': 70, 'input_token_details': {}, 'output_token_details': {}}), 'parsed': Drama(title='盗梦空间', year=None, director=None, rating=9.3, cast=[]), 'parsing_error': None}
+```
+
+#### **2.3.2.2. 使用输出解析器**_支持推理模型
+
+（上面说的思考模式无法正常返回甚至会报错的问题）
+
+这种方法更传统，依赖于在提示词中明确指示模型输出特定格式的文本，然后使用解析器进行转换。其流程是：提示词指导 (引导生成指定类型）→ 模型生成文本 → 解析器转换。
+
+```
+from langchain.chat_models import init_chat_model
+from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel, Field
+
+from env_utils import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+
+init_deepseek_v4 = init_chat_model(
+    model="deepseek-v4-flash",
+    api_key=DEEPSEEK_API_KEY,
+    base_url=DEEPSEEK_BASE_URL,
+    model_provider="deepseek",
+)
+
+# 1. 定义结构
+class Movie(BaseModel):
+    title: str = Field(description="电影标题")
+    year: int = Field(description="上映年份")
+
+# 2. 创建解析器和提示模板
+parser = JsonOutputParser(pydantic_object=Movie)
+
+prompt = ChatPromptTemplate.from_template("""
+回答用户问题。
+问题：{question}
+你必须始终输出一个包含title(电影标题)和year(上映年份)的 JSON 对象。
+""")
+
+# 3. 创建链
+chain = prompt | init_deepseek_v4 | parser
+
+# 4. 调用（返回字典）
+response = chain.invoke({"question": "介绍电影《盗梦空间》"})
+print(response)
+```
+
+```py
+{'title': '盗梦空间', 'year': 2010}  
+```
+
+## 2.4. **模型工具调用（了解）**
+
+大模型工具调用（Tool Calling）可以扩展模型能力，使模型能够突破纯文本生成的限制，与外部系统和功能进行交互。在LangChain框架中，这一功能也被称为函数调用（Function Calling），两种术语可以互换使用。
+
+### **2.4.1. 模型调用工具步骤**
+
+如下是定义一个查询天气工具，工具名称为get_weather，具体工具创建可以参考Agent章节部分工具创建方式
+
+```py
+"""
+模型工具调用
+"""
+from langchain_core.tools import tool
+
+from Test01.Demo03init_llm import deepseek_init_llm, qwen_init_llm
+
+# 创建一个模型工具
+@tool
+def get_weather(location: str) -> str:
+    """获取天气信息"""
+    return f"{location} 天气是晴天。"
+
+# 工具告诉给模型 模型绑定工具(必须要返回结果，用返回的结果去调用，不然不会调用工具)
+model_with_tools  = deepseek_init_llm.bind_tools([get_weather])
+
+# 模型返回调用工具返回工具结果
+resp = model_with_tools.invoke('获取北京天气')
+
+## 获取工具调用信息
+if resp.tool_calls:
+    for tool_call in resp.tool_calls:
+
+        print(f"工具调用ID：{tool_call}")
+
+# 模型返回结果
+print(type(resp))
+print(resp)
+```
+
+以上代码运行后response对象是一个AIMessage，大模型根据用户提问如果调用了工具，该对象输出内容中只有调用工具的参数请求信息，并不会主动调用工具，所以如果真正要大模型根据工具调用结果进行回复，完整的调用流程包括如下四个步骤：
+
+1. 模型绑定工具：通过model.bind_tools([...])绑定一个或者多个工具。
+2. 模型生成工具调用请求：用户输入问题，如果调用工具，模型返回工具调用信息（如工具名称和参数）。
+3. 开发者手动执行工具：用户从响应中提取工具调用信息并手动调用对应的工具。
+4. 将工具执行结果传递给模型生成最终结果：将之前用户提问内容和手动执行工具结果返回模型，模型最终生成回复。
+
+```py
+"""
+模型工具调用
+"""
+from langchain_core.messages import HumanMessage
+from langchain_core.tools import tool
+
+from Test01.Demo03init_llm import deepseek_init_llm, qwen_init_llm
+
+# 创建一个模型工具
+@tool
+def get_weather(location: str) -> str:
+    """获取天气信息"""
+    return f"{location} 天气是晴天。"
+
+# 工具告诉给模型 模型绑定工具
+model_with_tools  = deepseek_init_llm.bind_tools([get_weather])
+messages = []
+human_message = HumanMessage(content="北京的天气")
+# human_message = HumanMessage(content="海水为什么是咸的？")
+messages.append(human_message)
+# 模型返回调用工具返回工具结果
+resp = model_with_tools.invoke(messages)
+
+messages.append(resp)
+## 获取工具调用信息
+if resp.tool_calls:
+    for tool_call in resp.tool_calls:
+        print(f"工具调用ID：{tool_call}")
+        if tool_call['name'] == 'get_weather':
+            tool_result = get_weather.invoke(tool_call)
+            messages.append(tool_result)
+# 模型返回结果
+final_response = model_with_tools.invoke(messages)
+print('final_response', final_response) # 也是AIMessage
+print('final_response.content', final_response.content)
+```
+
+```py
+工具调用ID：{'name': 'get_weather', 'args': {'location': '北京'}, 'id': 'call_00_gploLiDIiteVtYiuiZpv8737', 'type': 'tool_call'}
+final_response content='北京的天气目前是**晴天** ☀️。' additional_kwargs={'refusal': None, 'reasoning_content': '北京的天气是晴天。我可以用中文回答用户。'} response_metadata={'token_usage': {'completion_tokens': 23, 'prompt_tokens': 352, 'total_tokens': 375, 'completion_tokens_details': {'accepted_prediction_tokens': None, 'audio_tokens': None, 'reasoning_tokens': 11, 'rejected_prediction_tokens': None}, 'prompt_tokens_details': {'audio_tokens': None, 'cached_tokens': 256}, 'prompt_cache_hit_tokens': 256, 'prompt_cache_miss_tokens': 96}, 'model_provider': 'deepseek', 'model_name': 'deepseek-v4-flash', 'system_fingerprint': 'fp_8b330d02d0_prod0820_fp8_kvcache_20260402', 'id': '55040437-20d1-4f1e-bb87-a79d28bcae84', 'finish_reason': 'stop', 'logprobs': None} id='lc_run--019f085f-8b05-78e3-9ad4-32d29be7293a-0' tool_calls=[] invalid_tool_calls=[] usage_metadata={'input_tokens': 352, 'output_tokens': 23, 'total_tokens': 375, 'input_token_details': {'cache_read': 256}, 'output_token_details': {'reasoning': 11}}
+final_response.content 北京的天气目前是**晴天** ☀️。
+```
+
+总结：大模型没有执行工具的能力
+
+1、创建工具
+
+2、给模型绑定工具
+
+3、LL返回调用工具信息，手动调用工具
+
+4、将所有消息(HumanMessage + AImessage + ToolMessage 传递给LLM，LLM出最后结果)
+
+### **2.4.2. 模型多工具调用**
+
+大模型调用工具是单次推理，即每次运行调用一个工具，当调用多个工具时，需要用户自己管理多次调用循环。
+
+有两个工具get_stock_price（获取公司股票价格）、search_news（获取新闻），当用户提问“苹果公司今天的股价是多少？最近有什么新闻？”显然需要调用两个工具，那么第一次“model_with_tools.invoke(message)”调用执行会调用到“get_stock_price”工具（AIMessage对象中的tool_calls有工具调用），第二次“model_with_tools.invoke(message)”会调用到“search_news”工具（AIMessage对象中的tool_calls有工具调用），当不再调用工具时，返回的AIMessage对象中的tool_calls为空，所以我们使用一个While循环来自己管理工具多次调用循环，这样最终将所有消息交个大模型后，得到最终结果。
+
+# 三、Agent智能体
+
+## 3.1 Agent介绍
 
 
 

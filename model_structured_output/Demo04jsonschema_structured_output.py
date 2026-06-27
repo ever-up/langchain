@@ -18,7 +18,7 @@ json_schema = {
     # "required": ["title", "year", "director", "actors", "genres", "rating"] # 必须包含的字段，默认所有字段都必须包含，实际结果中可能缺少信息
 }
 
-model_with_structure = qwen_init_llm.with_structured_output(json_schema, method="json_mode")
+model_with_structure = qwen_init_llm.with_structured_output(json_schema, method="json_mode",)
 invoke = model_with_structure.invoke("""
 请以json格式输出：电影：《盗梦空间》
 """)
